@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stardust Athenaeum</title>
+    <!-- Google Fonts for the distinct aesthetic -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=VT323&display=swap" rel="stylesheet">
+    <!-- p5.js Library for particle animations -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.1/p5.js"></script>
+
+    <style>
+        /*
+         * STARDUST ATHENAEUM - STYLESHEET
+         * Theming is controlled via CSS variables for easy persona switching.
+        */
+
+        :root {
+            /* Persona A (Default): Elegant, mysterious, cyan glow */
+            --bg-color: #0d0b1a;
+            --text-color: #e0e0e0;
+            --primary-accent: #4c2a85; /* Deep Violet */
+            --secondary-accent: #a4133c; /* Crimson */
+            --glow-color: #00f6ff; /* Cyan */
+            --font-main: 'Cinzel Decorative', cursive;
+            --font-ui: 'VT323', monospace;
+        }
+
+        body.persona-b {
+            /* Persona B: Dramatic, artistic, magenta glow */
+            --bg-color: #1a1a1d; /* Graphite Black */
+            --primary-accent: #a4133c; /* Crimson */
+            --secondary-accent: #c9a227; /* Antique Gold */
+            --glow-color: #ff00a0; /* Magenta */
+        }
+        
+        /* --- Base & Layout --- */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: var(--font-ui);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+            transition: background-color 0.5s ease;
+            position: relative;
+        }
+
+        /* Y2K CRT screen scanline effect */
+        body::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: repeating-linear-gradient(0deg, rgba(0,0,0,0.3) 0, rgba(0,0,0,0.3) 1px, transparent 1px, transparent 4px);
+            pointer-events: none;
+            z-index: 9999;
+            opacity: 0.5;
+        }
+
+        #particle-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; }
+        
+        #app-container {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 25px;
+            padding: 40px;
+            background-color: rgba(13, 11, 26, 0.85);
+            border: 2px solid var(--primary-accent);
+            box-shadow: 0 0 20px var(--glow-color), inset 0 0 15px var(--primary-accent);
+            text-align: center;
+            width: 90%;
+            max-width: 600px;
+            transition: all 0.5s ease;
+        }
+        
+        /* --- Typography & UI Elements --- */
+        h1 {
+            font-family: var(--font-main);
+            font-size: 2.8rem;
+            letter-spacing: 4px;
+            text-shadow: 0 0 5px var(--glow-color), 0 0 15px var(--glow-color);
+            user-select: none;
+        }
+        
+        #fragment-form { display: flex; flex-direction: column; width: 100%; gap: 15px; }
+
+        #fragment-input {
+            width: 100%;
+            background: #000;
+            border: 2px solid var(--primary-accent);
+            color: var(--text-color);
+            font-family: var(--font-ui);
+            font-size: 1.4rem;
+            padding: 12px;
+            outline: none;
+            transition: box-shadow 0.3s ease;
+        }
+        #fragment-input::placeholder { color: rgba(255, 255, 255, 0.4); }
+        #fragment-input:focus { box-shadow: 0 0 12px var(--glow-color); }
+
+        .btn {
+            font-family: var(--font-ui);
+            font-size: 1.3rem;
+            padding: 12px 18px;
+            background-color: var(--primary-accent);
+            color: var(--text-color);
+            border: 2px solid var(--secondary-accent);
+            cursor: pointer;
+            text-shadow: 0 0 4px var(--glow-color);
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+        .btn:hover, .btn:focus {
+            background-color: var(--secondary-accent);
+            border-color: var(--primary-accent);
+            box-shadow: 0 0 12px var(--glow-color);
+            outline: none;
+        }
+        
+        #controls { display: flex; gap: 15px; margin-top: 10px; flex-wrap: wrap; justify-content: center; }
+
+        /* --- Modals (Oracle & About) --- */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 50%; top: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+            max-width: 500px;
+            background-color: #000;
+            border: 2px solid var(--primary-accent);
+            box-shadow: 0 0 25px var(--glow-color);
+            animation: fadeIn 0.5s ease;
+        }
+        .modal-header { padding: 10px 15px; background-color: var(--primary-accent); font-size: 1.2rem; display: flex; justify-content: space-between; align-items: center; }
+        .modal-close-btn { background: none; border: 1px solid var(--text-color); color: var(--text-color); font-family: var(--font-ui); cursor: pointer; padding: 2px 5px; }
+        .modal-body { padding: 30px; font-size: 1.3rem; text-align: left; line-height: 1.7; }
+        .modal-body p { margin-bottom: 20px; }
+        .modal-body strong { color: var(--glow-color); text-shadow: 0 0 5px var(--glow-color); }
+        .modal-body .hackathon-credit { margin-top: 25px; text-align: center; opacity: 0.8; font-size: 1.1rem; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translate(-50%, -60%); }
+            to { opacity: 1; transform: translate(-50%, -50%); }
+        }
+
+        /* --- Floating UI & Feedback --- */
+        #about-button {
+            position: fixed;
+            top: 15px;
+            right: 15px;
+            z-index: 100;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 5px 12px;
+            background: rgba(0,0,0,0.6);
+            border: 1px solid var(--glow-color);
+            color: var(--glow-color);
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+        #about-button:hover { transform: scale(1.1); box-shadow: 0 0 10px var(--glow-color); }
+
+        #feedback-message {
+            position: fixed;
+            top: 20%;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 500;
+            padding: 15px 25px;
+            background: rgba(0,0,0,0.8);
+            border: 1px solid var(--glow-color);
+            color: var(--glow-color);
+            font-size: 1.5rem;
+            text-align: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s ease;
+            box-shadow: 0 0 15px var(--glow-color);
+        }
+        #feedback-message.show { opacity: 1; }
+
+        /* --- Mobile Responsiveness --- */
+        @media (max-width: 600px) {
+            h1 { font-size: 2rem; }
+            #app-container { padding: 25px; gap: 20px; }
+            .btn { font-size: 1.1rem; padding: 10px 15px; }
+            #fragment-input { font-size: 1.2rem; }
+            .modal-body { font-size: 1.1rem; }
+            #feedback-message { font-size: 1.2rem; width: 80%; }
+        }
+    </style>
+</head>
+<body class=""> 
+
+    <div id="particle-canvas"></div>
+    
+    <div id="app-container">
+        <h1>⚜ Stardust Athenaeum ⚜</h1>
+        <form id="fragment-form" onsubmit="return false;">
+            <input type="text" id="fragment-input" placeholder="Whisper a memory, a thought, a feeling..." autocomplete="off">
+            <button type="submit" id="submit-button" class="btn">Weave ✧</button>
+        </form>
+        <div id="controls">
+            <button id="oracle-button" class="btn">Project Oracle ♱</button>
+            <button id="theme-switcher" class="btn">Alter Resonance ✥</button>
+            <button id="export-button" class="btn">Export Archive ☾</button>
+        </div>
+    </div>
+    
+    <div id="oracle-modal" class="modal">
+        <div class="modal-header"><span>[ Oracle Projection ]</span><button class="modal-close-btn">X</button></div>
+        <div class="modal-body"><p id="oracle-text"></p></div>
+    </div>
+
+    <div id="about-modal" class="modal">
+        <div class="modal-header"><span>[ About This Place ]</span><button class="modal-close-btn">X</button></div>
+        <div class="modal-body">
+            <p>This is a sanctuary for your fleeting thoughts. Each fragment you weave becomes a <strong>star</strong>, saved only to your browser's local storage.</p>
+            <p>A gone day is gone. You may <strong>export</strong> your archive as a timeless text file, but it cannot be brought back. This space is for reflection and release.</p>
+            <p class="hackathon-credit">This project was crafted with passion for the<br><strong>Varsity Hacks Hackathon</strong>.</p>
+        </div>
+    </div>
+    
+    <div id="feedback-message"></div>
+    <div id="about-button" title="About This Place">?</div>
+
+    <script>
+        // --- P5.JS SKETCH FOR PARTICLE BACKGROUND ---
+        let fragments = [];
+        let dust = [];
+        let canvas;
+        
+        function setup() {
+            canvas = createCanvas(windowWidth, windowHeight);
+            canvas.parent('particle-canvas');
+            for(let i = 0; i < 150; i++) { // Increased dust for more atmosphere
+                dust.push(new DustParticle());
+            }
+            loadFragmentsFromStorage();
+        }
+
+        function draw() {
+            clear();
+            dust.forEach(d => { d.update(); d.display(); });
+            fragments.forEach(f => { f.update(); f.display(); });
+        }
+
+        function windowResized() { resizeCanvas(windowWidth, windowHeight); }
+
+        class DustParticle {
+            constructor() {
+                this.pos = createVector(random(width), random(height));
+                this.vel = createVector(random(-0.3, 0.3), random(-0.3, 0.3));
+                this.size = random(1, 3);
+                this.alpha = random(30, 80);
+            }
+            update() {
+                this.pos.add(this.vel);
+                if (this.pos.x < -10) this.pos.x = width + 10;
+                if (this.pos.x > width + 10) this.pos.x = -10;
+                if (this.pos.y < -10) this.pos.y = height + 10;
+                if (this.pos.y > height + 10) this.pos.y = -10;
+            }
+            display() {
+                let glow = document.body.classList.contains('persona-b') ? color(255, 0, 160, this.alpha) : color(0, 246, 255, this.alpha);
+                noStroke();
+                fill(glow);
+                ellipse(this.pos.x, this.pos.y, this.size, this.size);
+            }
+        }
+
+        class Star {
+            constructor(x, y, data) {
+                this.pos = createVector(x, y);
+                this.vel = p5.Vector.random2D().mult(random(0.3, 0.8));
+                this.data = data; // Contains {text, date}
+                this.size = 18;
+            }
+            update() {
+                this.pos.add(this.vel);
+                if (this.pos.x < 20 || this.pos.x > width - 20) this.vel.x *= -1;
+                if (this.pos.y < 20 || this.pos.y > height - 20) this.vel.y *= -1;
+            }
+            display() {
+                let d = dist(mouseX, mouseY, this.pos.x, this.pos.y);
+                let isHovered = d < 30;
+                let glow = document.body.classList.contains('persona-b') ? color(255, 0, 160) : color(0, 246, 255);
+                
+                noStroke();
+                textAlign(CENTER, CENTER);
+                
+                // Display text and date on hover
+                if (isHovered) {
+                    fill(red(glow), green(glow), blue(glow), 255);
+                    textSize(16);
+                    text(this.data.text, this.pos.x, this.pos.y - 30);
+                    fill(red(glow), green(glow), blue(glow), 180);
+                    textSize(12);
+                    text(`[${this.data.date}]`, this.pos.x, this.pos.y - 12);
+                }
+                
+                // Draw the star symbol, making it glow brighter on hover
+                let starAlpha = isHovered ? 255 : 150;
+                fill(red(glow), green(glow), blue(glow), starAlpha);
+                textSize(isHovered ? 28 : this.size);
+                text('✧', this.pos.x, this.pos.y);
+            }
+        }
+
+        // --- MAIN APP LOGIC ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // Element Selectors
+            const fragmentForm = document.getElementById('fragment-form');
+            const fragmentInput = document.getElementById('fragment-input');
+            const submitButton = document.getElementById('submit-button');
+            const themeSwitcher = document.getElementById('theme-switcher');
+            const exportButton = document.getElementById('export-button');
+            const feedbackMessage = document.getElementById('feedback-message');
+            const FRAGMENTS_KEY = 'stardustFragments_v2'; // Key for localStorage
+
+            // Persona-specific quotes for feedback
+            const personaAQuotes = [ "Look, a new star is born!", "Every little piece is precious.", "You're doing wonderfully. Keep weaving.", "It's beautiful...", "Another memory finds its place in the cosmos." ];
+            const personaBQuotes = [ "An acceptable addition to the tapestry.", "Voilà. A fleeting thought, now immortalized.", "The form is crude, yet the emotion is palpable.", "A masterpiece is built from such fragments.", "Hmph. It possesses a certain artistic merit." ];
+            const oracleQuotes = [ "A scattered character, like a fragment of a star.", "People gather them to compose a single story.", "In the flow of time, the proof of life is written.", "A beautiful, yet grotesque, melody is here.", "Carve your ideals with ink mixed of love and sin.", "Let us show you how we live, on unparalleled, noble leaves of sound.", "Blessings upon this Library.", "Life is a Novel, written in stardust.", "Every fragment is a universe.", "The void echoes with your whispers." ];
+
+            // --- Modal Handling ---
+            const setupModal = (buttonId, modalId) => {
+                const button = document.getElementById(buttonId);
+                const modal = document.getElementById(modalId);
+                const closeBtn = modal.querySelector('.modal-close-btn');
+
+                button.addEventListener('click', () => {
+                    if (buttonId === 'oracle-button') {
+                        document.getElementById('oracle-text').textContent = oracleQuotes[Math.floor(Math.random() * oracleQuotes.length)];
+                    }
+                    modal.style.display = 'block';
+                });
+                closeBtn.addEventListener('click', () => modal.style.display = 'none');
+                window.addEventListener('click', (e) => { if (e.target == modal) modal.style.display = 'none'; });
+            };
+            setupModal('oracle-button', 'oracle-modal');
+            setupModal('about-button', 'about-modal');
+
+            // --- Core Functionality ---
+            const handleFragmentSubmit = () => {
+                const text = fragmentInput.value.trim();
+                if (text) {
+                    const fragmentData = { text: text, date: new Date().toLocaleDateString() };
+                    addFragmentToStorage(fragmentData);
+                    fragmentInput.value = '';
+                    showFeedbackMessage();
+                }
+            };
+
+            const showFeedbackMessage = () => {
+                const isPersonaB = document.body.classList.contains('persona-b');
+                const quotes = isPersonaB ? personaBQuotes : personaAQuotes;
+                feedbackMessage.textContent = quotes[Math.floor(Math.random() * quotes.length)];
+                feedbackMessage.classList.add('show');
+                setTimeout(() => {
+                    feedbackMessage.classList.remove('show');
+                }, 3500); // Message stays for 3.5 seconds
+            };
+
+            // Event Listeners
+            fragmentForm.addEventListener('submit', handleFragmentSubmit);
+            submitButton.addEventListener('click', handleFragmentSubmit);
+            themeSwitcher.addEventListener('click', () => document.body.classList.toggle('persona-b'));
+            exportButton.addEventListener('click', () => {
+                const storedFragments = getFragmentsFromStorage();
+                if (storedFragments.length === 0) {
+                    alert("Your archive is empty. Weave a fragment first.");
+                    return;
+                }
+                const header = "Stardust Athenaeum Archive\n=============================\n\n";
+                const content = storedFragments.map(f => `[${f.date}]: ${f.text}`).join('\r\n');
+                const blob = new Blob([header + content], { type: 'text/plain;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'stardust_athenaeum_archive.txt';
+                a.click();
+                URL.revokeObjectURL(url);
+            });
+
+            // --- Local Storage Interaction ---
+            const getFragmentsFromStorage = () => JSON.parse(localStorage.getItem(FRAGMENTS_KEY)) || [];
+
+            const saveFragmentsToStorage = (frags) => localStorage.setItem(FRAGMENTS_KEY, JSON.stringify(frags));
+
+            const addFragmentToStorage = (fragmentData) => {
+                // Add to p5.js for immediate visual feedback
+                fragments.push(new Star(random(width * 0.2, width * 0.8), random(height * 0.4, height * 0.6), fragmentData));
+                // Add to localStorage for persistence
+                const storedFragments = getFragmentsFromStorage();
+                storedFragments.push(fragmentData);
+                saveFragmentsToStorage(storedFragments);
+            };
+            
+            // This global function is called by p5.js setup() to populate the canvas on load
+            window.loadFragmentsFromStorage = () => {
+                const storedFragments = getFragmentsFromStorage();
+                storedFragments.forEach(data => {
+                     fragments.push(new Star(random(width), random(height), data));
+                });
+            };
+        });
+    </script>
+</body>
+</html>
